@@ -2,6 +2,8 @@ import jose from 'jose'
 import hkdf from 'futoin-hkdf'
 import logger from './logger'
 
+const CompactEncrypt = jose.compactEncrypt
+
 // Set default algorithm to use for auto-generated signing key
 const DEFAULT_SIGNATURE_ALGORITHM = 'HS512'
 
@@ -13,7 +15,7 @@ const DEFAULT_ENCRYPTION_ENABLED = false
 
 const DEFAULT_MAX_AGE = 30 * 24 * 60 * 60 // 30 days
 
-async function encode({
+async function encode ({
   token = {},
   maxAge = DEFAULT_MAX_AGE,
   secret,
@@ -31,25 +33,38 @@ async function encode({
 } = {}) {
   // Signing Key
   const _signingKey = signingKey
-    ? jose.JWK.asKey(JSON.parse(signingKey))
-    : getDerivedSigningKey(secret)
+    ? await jose.importJWK(JSON.parse(signingKey))
+    : await getDerivedSigningKey(secret)
 
   // Sign token
-  const signedToken = jose.JWT.sign(token, _signingKey, signingOptions)
+  const signedToken = await new jose.SignJWT(token)
+    .setProtectedHeader({ alg: DEFAULT_SIGNATURE_ALGORITHM })
+    .setIssuedAt()
+    .setExpirationTime(signingOptions.expiresIn ?? `${maxAge}s`)
+    .sign(_signingKey)
 
   if (encryption) {
     // Encryption Key
     const _encryptionKey = encryptionKey
-      ? jose.JWK.asKey(JSON.parse(encryptionKey))
-      : getDerivedEncryptionKey(secret)
+      ? await jose.importJWK(JSON.parse(encryptionKey))
+      : await getDerivedEncryptionKey(secret)
 
     // Encrypt token
-    return jose.JWE.encrypt(signedToken, _encryptionKey, encryptionOptions)
+    return await new CompactEncrypt(
+      new TextEncoder().encode(signedToken),
+      _encryptionKey
+    )
+      .setProtectedHeader({
+        alg: encryptionOptions.alg,
+        enc: encryptionOptions.enc,
+        zip: encryptionOptions.zip
+      })
+      .encrypt()
   }
   return signedToken
 }
 
-async function decode({
+async function decode ({
   secret,
   token,
   maxAge = DEFAULT_MAX_AGE,
@@ -73,21 +88,25 @@ async function decode({
   if (encryption) {
     // Encryption Key
     const _encryptionKey = decryptionKey
-      ? jose.JWK.asKey(JSON.parse(decryptionKey))
-      : getDerivedEncryptionKey(secret)
+      ? await jose.importJWK(JSON.parse(decryptionKey))
+      : await getDerivedEncryptionKey(secret)
 
     // Decrypt token
-    const decryptedToken = jose.JWE.decrypt(token, _encryptionKey, decryptionOptions)
-    tokenToVerify = decryptedToken.toString('utf8')
+    const { plaintext } = await jose.compactDecrypt(token, _encryptionKey)
+    tokenToVerify = new TextDecoder().decode(plaintext)
   }
 
   // Signing Key
   const _signingKey = verificationKey
-    ? jose.JWK.asKey(JSON.parse(verificationKey))
-    : getDerivedSigningKey(secret)
+    ? await jose.importJWK(JSON.parse(verificationKey))
+    : await getDerivedSigningKey(secret)
 
   // Verify token
-  return jose.JWT.verify(tokenToVerify, _signingKey, verificationOptions)
+  const { payload } = await jose.jwtVerify(tokenToVerify, _signingKey, {
+    algorithms: verificationOptions.algorithms,
+    maxTokenAge: verificationOptions.maxTokenAge
+  })
+  return payload
 }
 
 /**
@@ -99,7 +118,7 @@ async function decode({
  * raw?: boolean
  * }} params
  */
-async function getToken(params) {
+async function getToken (params) {
   const {
     req,
     // Use secure prefix for cookie name, unless URL is ISCAUTH_URL is http://
@@ -136,26 +155,36 @@ async function getToken(params) {
 let DERIVED_SIGNING_KEY_WARNING = false
 let DERIVED_ENCRYPTION_KEY_WARNING = false
 
-function getDerivedSigningKey(secret) {
+async function getDerivedSigningKey (secret) {
   if (!DERIVED_SIGNING_KEY_WARNING) {
     logger.warn('JWT_AUTO_GENERATED_SIGNING_KEY')
     DERIVED_SIGNING_KEY_WARNING = true
   }
 
   const buffer = hkdf(secret, 64, { info: 'ISCAuth Generated Signing Key', hash: 'SHA-256' })
-  const key = jose.JWK.asKey(buffer, { alg: DEFAULT_SIGNATURE_ALGORITHM, use: 'sig', kid: 'iscauth-auto-generated-signing-key' })
-  return key
+  return jose.importJWK({
+    kty: 'oct',
+    k: Buffer.from(buffer).toString('base64url'),
+    alg: DEFAULT_SIGNATURE_ALGORITHM,
+    use: 'sig',
+    kid: 'iscauth-auto-generated-signing-key'
+  })
 }
 
-function getDerivedEncryptionKey(secret) {
+async function getDerivedEncryptionKey (secret) {
   if (!DERIVED_ENCRYPTION_KEY_WARNING) {
     logger.warn('JWT_AUTO_GENERATED_ENCRYPTION_KEY')
     DERIVED_ENCRYPTION_KEY_WARNING = true
   }
 
   const buffer = hkdf(secret, 32, { info: 'ISCAuth Generated Encryption Key', hash: 'SHA-256' })
-  const key = jose.JWK.asKey(buffer, { alg: DEFAULT_ENCRYPTION_ALGORITHM, use: 'enc', kid: 'iscauth-auto-generated-encryption-key' })
-  return key
+  return jose.importJWK({
+    kty: 'oct',
+    k: Buffer.from(buffer).toString('base64url'),
+    alg: DEFAULT_ENCRYPTION_ALGORITHM,
+    use: 'enc',
+    kid: 'iscauth-auto-generated-encryption-key'
+  })
 }
 
 export default {

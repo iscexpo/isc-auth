@@ -3,7 +3,7 @@ FROM node:10-alpine as base
 WORKDIR /usr/src/app
 
 # Install basic dependancies (Next.js, React)
-COPY test/docker/app/package*.json ./
+COPY tests/docker/app/package*.json ./
 RUN npm ci --only=production
 
 FROM node:10-alpine as app
@@ -23,7 +23,7 @@ COPY package*.json node_modules/isc-auth/
 RUN cd node_modules/isc-auth/ && npm ci --only=production
 
 # Copy test pages across
-COPY test/docker/app/pages ./pages
+COPY tests/docker/app/pages ./pages
 
 RUN npm run build
 

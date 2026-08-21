@@ -1,0 +1,53 @@
+# Start test app with local databases inside the container.
+#
+# Note: Uses Docker Compose v2 as v3 doesn't currently support extends.
+# https://docs.docker.com/compose/compose-file/compose-file-v2/
+version: '2.3'
+
+services:
+
+  app:
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+    environment:
+      # Set env vars in your current terminal or in .env in the root directory
+      - ISCAUTH_URL=${ISCAUTH_URL}
+      - ISCAUTH_DATABASE_URL=${ISCAUTH_DATABASE_URL}
+      - ISCAUTH_SECRET=${ISCAUTH_SECRET}
+      - ISCAUTH_JWT_SESSIONS=${ISCAUTH_JWT_SESSIONS}
+      - ISCAUTH_AUTH0_ID=${ISCAUTH_AUTH0_ID}
+      - ISCAUTH_AUTH0_SECRET=${ISCAUTH_AUTH0_SECRET}
+      - ISCAUTH_AUTH0_DOMAIN=${ISCAUTH_AUTH0_DOMAIN}
+      - ISCAUTH_FACEBOOK_ID=${ISCAUTH_FACEBOOK_ID}
+      - ISCAUTH_FACEBOOK_SECRET=${ISCAUTH_FACEBOOK_SECRET}
+      - ISCAUTH_GITHUB_ID=${ISCAUTH_GITHUB_ID}
+      - ISCAUTH_GITHUB_SECRET=${ISCAUTH_GITHUB_SECRET}
+      - ISCAUTH_GOOGLE_ID=${ISCAUTH_GOOGLE_ID}
+      - ISCAUTH_GOOGLE_SECRET=${ISCAUTH_GOOGLE_SECRET}
+      - ISCAUTH_TWITTER_ID=${ISCAUTH_TWITTER_ID}
+      - ISCAUTH_TWITTER_SECRET=${ISCAUTH_TWITTER_SECRET}
+      - ISCAUTH_EMAIL_SERVER=${ISCAUTH_EMAIL_SERVER}
+      - ISCAUTH_EMAIL_FROM=${ISCAUTH_EMAIL_FROM}
+    ports:
+      - "3000:3000"
+
+  # mongo:
+  #   extends:
+  #     file: databases/mongo.yml
+  #     service: mongo
+
+  # mssql:
+  #   extends:
+  #     file: databases/mssql.yml
+  #     service: mssql
+
+  # mysql:
+  #   extends:
+  #     file: databases/mysql.yml
+  #     service: mysql
+
+  # postgres:
+  #   extends:
+  #     file: databases/postgres.yml
+  #     service: postgres

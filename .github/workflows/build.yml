@@ -25,5 +25,9 @@ jobs:
       # --legacy-peer-deps: the lockfile pins legacy peers (e.g. typeorm@1)
       - run: npm ci --legacy-peer-deps
       - run: npm run build
+      - name: Verify CSS build artifact
+        # Regression guard: the PostCSS build must emit the wrapped CSS module.
+        # If this is missing the library would ship without styles.
+        run: test -f dist/styles/index.js || (echo "dist/styles/index.js missing" && exit 1)
       - run: npm run lint
       - run: npm run test:unit

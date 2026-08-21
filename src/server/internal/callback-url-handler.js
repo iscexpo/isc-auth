@@ -1,4 +1,4 @@
-import * as cookie from '../lib/cookie'
+import * as cookie from '../internal/cookie'
 
 /**
  * Get callback URL based on query param / cookie + validation,

@@ -2,7 +2,7 @@ import signin from './signin'
 import signout from './signout'
 import verifyRequest from './verify-request'
 import error from './error'
-import css from '../../css'
+import css from '../../styles'
 
 /** Takes a request and response, and gives renderable pages */
 export default function renderPage (req, res) {

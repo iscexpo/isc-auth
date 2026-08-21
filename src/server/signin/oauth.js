@@ -1,8 +1,8 @@
 import oAuthClient from '../oauth/client'
 import { createHash } from 'crypto'
-import logger from '../../../lib/logger'
+import logger from '../../lib/logger'
 
-export default async function oauth(provider, csrfToken) {
+export default async function oauth (provider, csrfToken) {
   const { callbackUrl } = provider
   const client = oAuthClient(provider)
   if (provider.version?.startsWith('2.')) {

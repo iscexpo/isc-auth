@@ -1,5 +1,5 @@
-import oAuthSignin from '../lib/signin/oauth'
-import emailSignin from '../lib/signin/email'
+import oAuthSignin from '../signin/oauth'
+import emailSignin from '../signin/email'
 import logger from '../../lib/logger'
 
 /** Handle requests to /api/auth/signin */

@@ -1,6 +1,6 @@
 import { OAuth, OAuth2 } from 'oauth'
 import querystring from 'querystring'
-import logger from '../../../lib/logger'
+import logger from '../../lib/logger'
 import { sign as jwtSign } from 'jsonwebtoken'
 
 /**
@@ -8,7 +8,7 @@ import { sign as jwtSign } from 'jsonwebtoken'
  * It is already quite monkey patched, we don't use all the features and and it
  * would be easier to maintain if all the code was native to isc-auth.
  */
-export default function oAuthClient(provider) {
+export default function oAuthClient (provider) {
   if (provider.version?.startsWith('2.')) {
     // Handle OAuth v2.x
     const authorizationUrl = new URL(provider.authorizationUrl)
@@ -87,7 +87,7 @@ export default function oAuthClient(provider) {
 /**
  * Ported from https://github.com/ciaranj/node-oauth/blob/a7f8a1e21c362eb4ed2039431fb9ac2ae749f26a/lib/oauth2.js
  */
-async function getOAuth2AccessToken(code, provider) {
+async function getOAuth2AccessToken (code, provider) {
   const url = provider.accessTokenUrl
   const params = { ...provider.params }
   const headers = { ...provider.headers }
@@ -108,10 +108,10 @@ async function getOAuth2AccessToken(code, provider) {
       aud: 'https://appleid.apple.com',
       sub: provider.clientId
     },
-      // Automatically convert \\n into \n if found in private key. If the key
-      // is passed in an environment variable \n can get escaped as \\n
-      privateKey.replace(/\\n/g, '\n'),
-      { algorithm: 'ES256', keyid: keyId }
+    // Automatically convert \\n into \n if found in private key. If the key
+    // is passed in an environment variable \n can get escaped as \\n
+    privateKey.replace(/\\n/g, '\n'),
+    { algorithm: 'ES256', keyid: keyId }
     )
     params.client_secret = clientSecret
   } else {
@@ -175,7 +175,7 @@ async function getOAuth2AccessToken(code, provider) {
  * 18/08/2020 @robertcraigie added results parameter to pass data to an optional request preparer.
  * e.g. see providers/bungie
  */
-async function getOAuth2(provider, accessToken, results) {
+async function getOAuth2 (provider, accessToken, results) {
   let url = provider.profileUrl
   const headers = { ...provider.headers }
 
@@ -211,7 +211,7 @@ async function getOAuth2(provider, accessToken, results) {
 }
 
 /** Bungie needs special handling */
-function prepareProfileUrl({ provider, url, results }) {
+function prepareProfileUrl ({ provider, url, results }) {
   if (!results.membership_id) {
     // internal error
     // @TODO: handle better

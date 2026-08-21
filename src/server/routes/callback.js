@@ -1,8 +1,8 @@
-import oAuthCallback from '../lib/oauth/callback'
-import callbackHandler from '../lib/callback-handler'
-import * as cookie from '../lib/cookie'
+import oAuthCallback from '../oauth/callback'
+import callbackHandler from '../internal/callback-handler'
+import * as cookie from '../internal/cookie'
 import logger from '../../lib/logger'
-import dispatchEvent from '../lib/dispatch-event'
+import dispatchEvent from '../internal/dispatch-event'
 
 /** Handle callbacks from login services */
 export default async function callback (req, res) {

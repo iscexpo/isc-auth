@@ -1,0 +1,55 @@
+name: Integration Test
+
+on:
+  push:
+    branches: [ main, canary ]
+  pull_request:
+    branches: [ main, canary ]
+
+jobs:
+  test:
+    # Only run tests integration against Pull Requests from branches in
+    # this repository. We do this as integration tests require access to
+    # secrets in GitHub and they are not exposed to tests run against
+    # forks (for security reasons), so integration test against
+    # Pull Requests from external repos just fail and generate noise.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+
+    # We use self-hosted runners as cloud based runnners (e.g. AWS, GPC)
+    # fail due to IP Address checks done by providers, which enforce 
+    # CAPTCHA checks on login request from cloud compute IP addresses to
+    # prevent abuse.
+    runs-on: self-hosted
+
+    # Target time is under 5 minutes to run all tests. If it takes longer than
+    # 10 minutes should look at running tests in parallel. No individual flow
+    # should take longer than 5 minutes to build and run.
+    timeout-minutes: 10
+
+    strategy:
+      matrix:
+        node-version: [12.x]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      # Install dependencies
+      - run: npm ci
+
+      # Run tests (build library, build + start test app in Docker, run tests)
+      - run: npm test
+        # TODO Tests should exit out if env vars not set (currently hangs)
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}} 
+          ISCAUTH_TWITTER_ID: ${{secrets.ISCAUTH_TWITTER_ID}}
+          ISCAUTH_TWITTER_SECRET: ${{secrets.ISCAUTH_TWITTER_SECRET}}
+          ISCAUTH_TWITTER_USERNAME: ${{secrets.ISCAUTH_TWITTER_USERNAME}}
+          ISCAUTH_TWITTER_PASSWORD: ${{secrets.ISCAUTH_TWITTER_PASSWORD}}
+          ISCAUTH_GITHUB_ID: ${{secrets.ISCAUTH_GITHUB_ID}}
+          ISCAUTH_GITHUB_SECRET: ${{secrets.ISCAUTH_GITHUB_SECRET}}
+          ISCAUTH_GITHUB_USERNAME: ${{secrets.ISCAUTH_GITHUB_USERNAME}}
+          ISCAUTH_GITHUB_PASSWORD: ${{secrets.ISCAUTH_GITHUB_PASSWORD}}

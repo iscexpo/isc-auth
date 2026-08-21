@@ -1,5 +1,5 @@
 import { AccountNotLinkedError } from '../../lib/errors'
-import dispatchEvent from '../lib/dispatch-event'
+import dispatchEvent from '../internal/dispatch-event'
 
 /**
  * This function handles the complex flow of signing users in, and either creating,

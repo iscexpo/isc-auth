@@ -1,6 +1,6 @@
-import * as cookie from '../lib/cookie'
+import * as cookie from '../internal/cookie'
 import logger from '../../lib/logger'
-import dispatchEvent from '../lib/dispatch-event'
+import dispatchEvent from '../internal/dispatch-event'
 
 /**
  * Return a session object (without any private fields)

@@ -8,7 +8,7 @@
  * As only partial functionlity is required, only the code we need has been incorporated here
  * (with fixes for specific issues) to keep dependancy size down.
  */
-export function set(res, name, value, options = {}) {
+export function set (res, name, value, options = {}) {
   const stringValue = typeof value === 'object' ? 'j:' + JSON.stringify(value) : String(value)
 
   if ('maxAge' in options) {
@@ -24,7 +24,7 @@ export function set(res, name, value, options = {}) {
   res.setHeader('Set-Cookie', setCookieHeader)
 }
 
-function _serialize(name, val, options) {
+function _serialize (name, val, options) {
   const fieldContentRegExp = /^[\u0009\u0020-\u007e\u0080-\u00ff]+$/ // eslint-disable-line no-control-regex
 
   const opt = options || {}
@@ -111,7 +111,7 @@ function _serialize(name, val, options) {
  *
  * @TODO Review cookie settings (names, options)
  */
-export function defaultCookies(useSecureCookies) {
+export function defaultCookies (useSecureCookies) {
   const cookiePrefix = useSecureCookies ? '__Secure-' : ''
   return {
     // default cookie options

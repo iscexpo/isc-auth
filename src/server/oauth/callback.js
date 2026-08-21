@@ -1,16 +1,16 @@
 import { createHash } from 'crypto'
 import { decode as jwtDecode } from 'jsonwebtoken'
 import oAuthClient from './client'
-import logger from '../../../lib/logger'
+import logger from '../../lib/logger'
 class OAuthCallbackError extends Error {
-  constructor(message) {
+  constructor (message) {
     super(message)
     this.name = 'OAuthCallbackError'
     this.message = message
   }
 }
 
-export default async function oAuthCallback(req) {
+export default async function oAuthCallback (req) {
   const { provider, csrfToken } = req.options
   const client = oAuthClient(provider)
 
@@ -109,7 +109,7 @@ export default async function oAuthCallback(req) {
  * //6/30/2020 @geraldnolan added userData parameter to attach additional data to the profileData object
  * Returns profile, raw profile and auth provider details
  */
-async function _getProfile({
+async function _getProfile ({
   profileData, tokens: { accessToken, refreshToken, idToken }, provider, user
 }) {
   try {
@@ -161,7 +161,7 @@ async function _getProfile({
   }
 }
 
-function decodeIdToken(idToken) {
+function decodeIdToken (idToken) {
   if (!idToken) {
     throw new OAuthCallbackError('Missing JWT ID Token')
   }

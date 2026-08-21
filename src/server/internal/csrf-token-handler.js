@@ -15,7 +15,7 @@ import * as cookie from './cookie'
  * https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#double-submit-cookie
  * https://owasp.org/www-chapter-london/assets/slides/David_Johansson-Double_Defeat_of_Double-Submit_Cookie.pdf
  */
-export default function csrfTokenHandler(req, res, cookies, secret) {
+export default function csrfTokenHandler (req, res, cookies, secret) {
   const { csrfToken: csrfTokenFromRequest } = req.body
 
   let csrfTokenFromCookie

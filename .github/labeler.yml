@@ -1,0 +1,16 @@
+test:
+  - tests/**/*
+
+documentation:
+  - ./**/*.md
+
+providers:
+  - src/providers/**/*
+  - tests/integration/**/*
+
+adapters:
+  - src/adapters/**/*
+
+databases:
+  - tests/docker/databases/**/*
+  - tests/fixtures/**/*

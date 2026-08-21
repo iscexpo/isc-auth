@@ -1,5 +1,9 @@
-# This workflow will run tests using node and then publish a package to GitHub Packages when a release is created
-# For more information see: https://docs.github.com/en/actions/publishing-packages/publishing-nodejs-packages
+# Publishes the package to GitHub Packages whenever a GitHub Release is created.
+# Docs: https://docs.github.com/en/actions/publishing-packages/publishing-nodejs-packages
+#
+# Note: GitHub Packages only supports scoped npm packages, so the name is set
+# to @iscexpo/isc-auth during this workflow. The public npm package keeps the
+# unscoped name "isc-auth" and is released by release.yml (semantic-release).
 
 name: Node.js Package
 
@@ -8,18 +12,7 @@ on:
     types: [created]
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npm ci --legacy-peer-deps
-      - run: npm run build
-
   publish-gpr:
-    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -30,6 +23,7 @@ jobs:
         with:
           node-version: 20
           registry-url: https://npm.pkg.github.com/
+          scope: '@iscexpo'
       # --legacy-peer-deps: the lockfile pins legacy peers (e.g. typeorm@1)
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
@@ -37,5 +31,9 @@ jobs:
         run: npm run lint
       - name: Build
         run: npm run build
+      - name: Scope package name for GitHub Packages
+        run: npm pkg set name="@iscexpo/isc-auth"
+      - name: Publish to GitHub Packages
+        run: npm publish
         env:
-          NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

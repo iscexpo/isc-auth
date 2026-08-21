@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "isc-auth/*": [
+        "./src/*"
+      ],
+      "isc-auth": [
+        "./src"
+      ]
+    }
+  }
+}

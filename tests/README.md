@@ -48,3 +48,22 @@ npm run test:db:fauna
 ## Full suite
 
 `npm test` runs `build → test:unit → test:integration → teardown` and relies on Docker being available with the required images pulled.
+
+## Headless browser (Puppeteer) prerequisites
+
+The integration tests launch a real browser via Puppeteer. On Linux the
+downloaded Chromium needs system libraries that are not present by default.
+Install them before running `npm test`:
+
+```bash
+sudo apt-get update && sudo apt-get install -y \
+  libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
+  libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 \
+  libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 \
+  libcairo2 libasound2 libatspi2.0-0
+```
+
+The CI workflow (`.github/workflows/integration.yml`) installs these
+automatically. The OAuth flows themselves additionally require provider
+credentials (`ISCAUTH_GITHUB_*` / `ISCAUTH_TWITTER_*`) and a real test
+account; without them the browser tests cannot complete the login step.

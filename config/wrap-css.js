@@ -8,8 +8,8 @@
 const fs = require('fs')
 const path = require('path')
 
-const pathToCssJs = path.join(__dirname, '../dist/css/index.js')
-const pathToCss = path.join(__dirname, '../dist/css/index.css')
+const pathToCssJs = path.join(__dirname, '../dist/styles/index.js')
+const pathToCss = path.join(__dirname, '../dist/styles/index.css')
 
 const css = fs.readFileSync(pathToCss, 'utf8')
 const cssWithEscapedQuotes = css.replace(/"/gm, '\\"')

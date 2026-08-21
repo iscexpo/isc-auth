@@ -322,6 +322,13 @@ const _sendMessage = (message) => {
   }
 }
 
+export {
+  getSession,
+  getCsrfToken,
+  getProviders,
+  setOptions
+}
+
 export default {
   getSession,
   getCsrfToken,

@@ -1,8 +1,12 @@
-import jose from 'jose'
+import { SignJWT } from 'jose/jwt/sign'
+import { jwtVerify } from 'jose/jwt/verify'
+import { importJWK } from 'jose/key/import'
+import { compactEncrypt } from 'jose/jwe/compact/encrypt'
+import { compactDecrypt } from 'jose/jwe/compact/decrypt'
 import hkdf from 'futoin-hkdf'
 import logger from './logger'
 
-const CompactEncrypt = jose.compactEncrypt
+const CompactEncrypt = compactEncrypt
 
 // Set default algorithm to use for auto-generated signing key
 const DEFAULT_SIGNATURE_ALGORITHM = 'HS512'
@@ -33,11 +37,11 @@ async function encode ({
 } = {}) {
   // Signing Key
   const _signingKey = signingKey
-    ? await jose.importJWK(JSON.parse(signingKey))
+    ? await importJWK(JSON.parse(signingKey))
     : await getDerivedSigningKey(secret)
 
   // Sign token
-  const signedToken = await new jose.SignJWT(token)
+  const signedToken = await new SignJWT(token)
     .setProtectedHeader({ alg: DEFAULT_SIGNATURE_ALGORITHM })
     .setIssuedAt()
     .setExpirationTime(signingOptions.expiresIn ?? `${maxAge}s`)
@@ -46,7 +50,7 @@ async function encode ({
   if (encryption) {
     // Encryption Key
     const _encryptionKey = encryptionKey
-      ? await jose.importJWK(JSON.parse(encryptionKey))
+      ? await importJWK(JSON.parse(encryptionKey))
       : await getDerivedEncryptionKey(secret)
 
     // Encrypt token
@@ -88,21 +92,21 @@ async function decode ({
   if (encryption) {
     // Encryption Key
     const _encryptionKey = decryptionKey
-      ? await jose.importJWK(JSON.parse(decryptionKey))
+      ? await importJWK(JSON.parse(decryptionKey))
       : await getDerivedEncryptionKey(secret)
 
     // Decrypt token
-    const { plaintext } = await jose.compactDecrypt(token, _encryptionKey)
+    const { plaintext } = await compactDecrypt(token, _encryptionKey)
     tokenToVerify = new TextDecoder().decode(plaintext)
   }
 
   // Signing Key
   const _signingKey = verificationKey
-    ? await jose.importJWK(JSON.parse(verificationKey))
+    ? await importJWK(JSON.parse(verificationKey))
     : await getDerivedSigningKey(secret)
 
   // Verify token
-  const { payload } = await jose.jwtVerify(tokenToVerify, _signingKey, {
+  const { payload } = await jwtVerify(tokenToVerify, _signingKey, {
     algorithms: verificationOptions.algorithms,
     maxTokenAge: verificationOptions.maxTokenAge
   })
@@ -162,7 +166,7 @@ async function getDerivedSigningKey (secret) {
   }
 
   const buffer = hkdf(secret, 64, { info: 'ISCAuth Generated Signing Key', hash: 'SHA-256' })
-  return jose.importJWK({
+  return importJWK({
     kty: 'oct',
     k: Buffer.from(buffer).toString('base64url'),
     alg: DEFAULT_SIGNATURE_ALGORITHM,
@@ -178,7 +182,7 @@ async function getDerivedEncryptionKey (secret) {
   }
 
   const buffer = hkdf(secret, 32, { info: 'ISCAuth Generated Encryption Key', hash: 'SHA-256' })
-  return jose.importJWK({
+  return importJWK({
     kty: 'oct',
     k: Buffer.from(buffer).toString('base64url'),
     alg: DEFAULT_ENCRYPTION_ALGORITHM,

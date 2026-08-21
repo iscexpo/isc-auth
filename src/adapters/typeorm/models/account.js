@@ -1,7 +1,7 @@
 import { createHash } from 'crypto'
 
 export class Account {
-  constructor(
+  constructor (
     userId,
     providerId,
     providerType,

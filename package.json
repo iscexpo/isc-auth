@@ -1,7 +1,20 @@
 {
   "name": "isc-auth",
-  "version": "0.0.0-semantically-released",
+  "version": "1.0.1",
   "description": "Authentication for Next.js",
+  "keywords": [
+    "react",
+    "nextjs",
+    "authentication",
+    "auth",
+    "oauth",
+    "oauth2",
+    "jwt",
+    "session",
+    "signin",
+    "email",
+    "passwordless"
+  ],
   "homepage": "http://localhost",
   "repository": "https://github.com/iscexpo/isc-auth.git",
   "author": "ISC Expo <admin@iscexpo.edu.bd>",

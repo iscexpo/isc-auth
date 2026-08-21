@@ -30,7 +30,12 @@ jobs:
         with:
           node-version: 20
           registry-url: https://npm.pkg.github.com/
-      - run: npm ci
-      - run: npm publish
+      # --legacy-peer-deps: the lockfile pins legacy peers (e.g. typeorm@1)
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
         env:
           NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}

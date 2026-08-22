@@ -1,6 +1,7 @@
 import * as cookie from '../internal/cookie'
 import logger from '../../lib/logger'
 import dispatchEvent from '../internal/dispatch-event'
+import { applyCompatSessionShape } from '../internal/session-shape'
 
 /**
  * Return a session object (without any private fields)
@@ -10,10 +11,12 @@ export default async function session (req, res) {
   const { cookies, adapter, jwt, events, callbacks } = req.options
   const useJwtSession = req.options.session.jwt
   const sessionMaxAge = req.options.session.maxAge
+  const compat = req.options.compat
   const sessionToken = req.cookies[cookies.sessionToken.name]
 
   if (!sessionToken) {
-    return res.json({})
+    // Better Auth style APIs resolve to null when there is no session
+    return res.json(compat && compat.betterAuth ? null : {})
   }
 
   let response = {}
@@ -99,5 +102,8 @@ export default async function session (req, res) {
     }
   }
 
-  res.json(response)
+  // Optionally convert to the Better Auth response shape
+  // ({ user, session: { expires } }); callbacks and events above still
+  // received the original v3 shaped payload.
+  res.json(applyCompatSessionShape(response, compat))
 }

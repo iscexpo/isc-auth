@@ -11,7 +11,7 @@
 // We use HTTP POST requests with CSRF Tokens to protect against CSRF attacks.
 
 /* global fetch:false */
-import { useState, useEffect, useContext, createContext, createElement } from 'react'
+import { useState, useEffect, useContext, useCallback, createContext, createElement } from 'react'
 import logger from '../lib/logger'
 import parseUrl from '../lib/parse-url'
 
@@ -142,22 +142,58 @@ const getProviders = async () => {
 const SessionContext = createContext()
 
 // Client side method
+//
+// Legacy v3 hook. Returns a [session, loading] tuple.
+// Deprecated in favour of useAuthSession(); will be removed in 2.0.
 export const useSession = (session) => {
   // Try to use context if we can
   const value = useContext(SessionContext)
 
   // If we have no Provider in the tree, call the actual hook
   if (value === undefined) {
-    return _useSessionHook(session)
+    const state = _useSessionState(session)
+    return [state.data, state.loading]
   }
 
-  return value
+  // The Provider stores the object shaped state; convert to a tuple
+  return Array.isArray(value) ? value : [value.data, value.loading]
 }
 
-// Internal hook for getting session from the api.
-const _useSessionHook = (session) => {
+// Client side method
+//
+// Better Auth style session hook. Returns an object:
+//   { data, isPending, error, refetch }
+//   - data:      session payload or null
+//   - isPending: true while the first session fetch is in flight
+//   - error:     error from the last fetch, or null
+//   - refetch(): force re-fetch of the session (bypasses clientMaxAge cache)
+const useAuthSession = () => {
+  const value = useContext(SessionContext)
+
+  if (value === undefined) {
+    const state = _useSessionState()
+    return { data: state.data, isPending: state.loading, error: state.error, refetch: state.refetch }
+  }
+
+  if (Array.isArray(value)) {
+    // Context still holds the legacy tuple shape
+    return {
+      data: value[0],
+      isPending: value[1],
+      error: null,
+      refetch: () => (__ISCAUTH._getSession ? __ISCAUTH._getSession({ event: 'forced' }) : Promise.resolve())
+    }
+  }
+
+  return { data: value.data, isPending: value.loading, error: value.error, refetch: value.refetch }
+}
+
+// Internal hook that fetches and keeps session state.
+// Returns object shaped state shared by both public hooks and the Provider.
+const _useSessionState = (session) => {
   const [data, setData] = useState(session)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     const _getSession = async ({ event = null } = {}) => {
@@ -212,6 +248,8 @@ const _useSessionHook = (session) => {
         setLoading(false)
       } catch (error) {
         logger.error('CLIENT_USE_SESSION_ERROR', error)
+        setError(error)
+        setLoading(false)
       }
     }
 
@@ -219,7 +257,26 @@ const _useSessionHook = (session) => {
 
     _getSession()
   })
-  return [data, loading]
+
+  // Force a network refresh, bypassing the clientMaxAge caching heuristics
+  const refetch = useCallback(async () => {
+    setError(null)
+    try {
+      const newData = await getSession()
+      __ISCAUTH._clientLastSync = Math.floor(new Date().getTime() / 1000)
+      __ISCAUTH._clientSession = newData
+      setData(newData)
+      setLoading(false)
+      return newData
+    } catch (error) {
+      logger.error('CLIENT_USE_SESSION_ERROR', error)
+      setError(error)
+      setLoading(false)
+      return null
+    }
+  }, [])
+
+  return { data, loading, error, refetch }
 }
 
 // Client side method
@@ -279,17 +336,107 @@ export const signOut = async (args = {}) => {
   window.location = data.url ?? callbackUrl
 }
 
+// Shared helper for JSON API endpoints (Better Auth parity methods).
+// Always resolves: success -> { ...body, ok: true, error: null },
+// failure -> { ok: false, error: { code, message } }.
+const _postJson = async (path, data, errorCode) => {
+  const baseUrl = _apiBaseUrl()
+  try {
+    const res = await fetch(`${baseUrl}${path}`, {
+      method: 'post',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        ...data,
+        csrfToken: await getCsrfToken()
+      })
+    })
+    const body = await res.json()
+
+    if (!res.ok) {
+      const error = (body && body.error) ? body.error : { code: errorCode, message: 'Request failed' }
+      logger.error(errorCode, error)
+      return { ok: false, error }
+    }
+
+    // Let other tabs/windows know session state may have changed
+    if (path === '/otp/verify' || path === '/signup/email') {
+      _sendMessage({ event: 'session', data: { trigger: 'signUp' } })
+    }
+
+    return { ...body, ok: true, error: null }
+  } catch (error) {
+    logger.error(errorCode, error)
+    return { ok: false, error: { code: 'CLIENT_FETCH_ERROR', message: 'Unable to reach the authentication endpoint' } }
+  }
+}
+
+// Client side method
+//
+// Change the password of the currently signed-in user.
+// Resolves to { ok: true } or { ok: false, error }.
+const changePassword = async ({ currentPassword, newPassword } = {}) => {
+  return _postJson('/password/change', { currentPassword, newPassword }, 'CLIENT_CHANGE_PASSWORD_ERROR')
+}
+
+// Client side method
+//
+// Request a password reset email. Always resolves to { ok: true } (or a
+// CLIENT_FETCH_ERROR for network failures) so account existence is not leaked.
+const forgotPassword = async ({ email } = {}) => {
+  return _postJson('/password/forgot', { email }, 'CLIENT_FORGOT_PASSWORD_ERROR')
+}
+
+// Client side method
+//
+// Consume a password reset token and set a new password.
+// Resolves to { ok: true } or { error: { code: 'INVALID_TOKEN' } }.
+const resetPassword = async ({ email, token, newPassword, password } = {}) => {
+  return _postJson('/password/reset', { email, token, newPassword: newPassword ?? password }, 'CLIENT_RESET_PASSWORD_ERROR')
+}
+
+// Client side method
+//
+// Register a new user account with email + password (Better Auth parity).
+// Unlike signIn()/signOut() this does not redirect; it resolves to an object
+// with either `user` or `error` set:
+//   { user: { id, name, email, image }, error: null }
+//   { user: null, error: { code: 'USER_EXISTS', message: '…' } }
+const signUpEmail = async ({ name, email, password, image, callbackUrl } = {}) => {
+  const result = await _postJson('/signup/email', { name, email, password, image, callbackUrl }, 'CLIENT_SIGNUP_ERROR')
+  return { user: (result && result.user) || null, error: (result && result.error) || null }
+}
+
+// Client side method
+//
+// Request a one-time code over SMS for phone number sign up / sign in.
+// Resolves to { ok: true, expiresIn } or { ok: false, error }.
+const sendPhoneOtp = async ({ phone } = {}) => {
+  return _postJson('/otp/send', { phone }, 'CLIENT_OTP_SEND_ERROR')
+}
+
+// Client side method
+//
+// Verify the one-time code for a phone number. On success the user is signed
+// in (and registered if it was their first time) and a session cookie is set.
+// Resolves to { user } or { error }.
+const verifyPhoneOtp = async ({ phone, code } = {}) => {
+  const result = await _postJson('/otp/verify', { phone, code }, 'CLIENT_OTP_VERIFY_ERROR')
+  return { user: (result && result.user) || null, error: (result && result.error) || null }
+}
+
 // Provider to wrap the app in to make session data available globally
 export const Provider = ({ children, session, options }) => {
   setOptions(options)
-  return createElement(SessionContext.Provider, { value: useSession(session) }, children)
+  return createElement(SessionContext.Provider, { value: _useSessionState(session) }, children)
 }
 
 const _fetchData = async (url, options = {}) => {
   try {
     const res = await fetch(url, options)
     const data = await res.json()
-    return Promise.resolve(Object.keys(data).length > 0 ? data : null) // Return null if data empty
+    return Promise.resolve(data && Object.keys(data).length > 0 ? data : null) // Return null if data empty
   } catch (error) {
     logger.error('CLIENT_FETCH_ERROR', url, error)
     return Promise.resolve(null)
@@ -326,6 +473,13 @@ export {
   getSession,
   getCsrfToken,
   getProviders,
+  signUpEmail,
+  sendPhoneOtp,
+  verifyPhoneOtp,
+  changePassword,
+  forgotPassword,
+  resetPassword,
+  useAuthSession,
   setOptions
 }
 
@@ -333,7 +487,14 @@ export default {
   getSession,
   getCsrfToken,
   getProviders,
+  signUpEmail,
+  sendPhoneOtp,
+  verifyPhoneOtp,
+  changePassword,
+  forgotPassword,
+  resetPassword,
   useSession,
+  useAuthSession,
   signIn,
   signOut,
   Provider,

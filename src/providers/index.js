@@ -22,6 +22,7 @@ import MailRu from './oauth/mailru'
 import Mixer from './oauth/mixer'
 import Netlify from './oauth/netlify'
 import Okta from './oauth/okta'
+import Phone from './phone'
 import Reddit from './oauth/reddit'
 import Slack from './oauth/slack'
 import Spotify from './oauth/spotify'
@@ -56,6 +57,7 @@ export default {
   Mixer,
   Netlify,
   Okta,
+  Phone,
   Reddit,
   Slack,
   Spotify,

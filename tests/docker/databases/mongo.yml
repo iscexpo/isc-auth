@@ -3,9 +3,12 @@ version: '2'
 services:
 
   mongo:
-    image: bitnami/mongodb
+    # Bitnami images were removed from Docker Hub; the legacy mirror still
+    # honours the MONGODB_* env vars used here (root password now required).
+    image: bitnamilegacy/mongodb:6.0
     restart: always
     environment:
+      MONGODB_ROOT_PASSWORD: root
       MONGODB_USERNAME: iscauth
       MONGODB_PASSWORD: password
       MONGODB_DATABASE: iscauth

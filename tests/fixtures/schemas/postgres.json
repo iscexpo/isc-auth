@@ -24,6 +24,21 @@
       "nullable": true,
       "default": null
     },
+    "password_hash": {
+      "type": "character varying",
+      "nullable": true,
+      "default": null
+    },
+    "phone": {
+      "type": "character varying",
+      "nullable": true,
+      "default": null
+    },
+    "phone_verified": {
+      "type": "timestamp with time zone",
+      "nullable": true,
+      "default": null
+    },
     "created_at": {
       "type": "timestamp with time zone",
       "nullable": false

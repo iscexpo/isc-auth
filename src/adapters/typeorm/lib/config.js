@@ -36,6 +36,11 @@ const parseConnectionString = (configString) => {
     // Prevents warning about deprecated option (sets default value)
     if (config.type === 'mssql') {
       config.options.enableArithAbort = true
+      // Newer tedious versions encrypt connections by default and reject
+      // self-signed certificates, which breaks local/dev SQL Server setups
+      // that previously worked. Restore the historical unencrypted default;
+      // users can enable TLS by passing an explicit config object.
+      config.options.encrypt = false
     }
 
     if (parsedUrl.search) {

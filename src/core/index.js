@@ -12,6 +12,9 @@ import * as routes from '../server/routes'
 import renderPage from '../server/pages'
 import csrfTokenHandler from '../server/internal/csrf-token-handler'
 import createSecret from '../server/internal/create-secret'
+import { jsonError } from '../server/internal/respond-json'
+import { AuthError } from '../lib/errors'
+import createApi from '../server/api'
 
 // To work properly in production with OAuth providers the ISCAUTH_URL
 // environment variable must be set.
@@ -93,6 +96,11 @@ async function ISCAuthHandler (req, res, userOptions) {
         maxAge,
         updateAge: 24 * 60 * 60, // Sessions updated only if session is greater than this value (0 = always, 24*60*60 = every 24 hours)
         ...userOptions.session
+      },
+      // Compatibility options (e.g. Better Auth response shapes)
+      compat: {
+        betterAuth: false, // When true, /session returns { user, session: { expires } }
+        ...userOptions.compat
       },
       // JWT options
       jwt: {
@@ -198,6 +206,43 @@ async function ISCAuthHandler (req, res, userOptions) {
             return routes.callback(req, res)
           }
           break
+        case 'signup':
+          // Sign up is an API-style route: it requires an adapter and always
+          // responds with JSON. Verified CSRF Token required.
+          if (csrfTokenVerified && providerId === 'email') {
+            return routes.signup(req, res)
+          }
+
+          return jsonError(res, new AuthError(csrfTokenVerified ? 'INVALID_REQUEST' : 'CSRF_MISMATCH', csrfTokenVerified ? 404 : 403))
+        case 'otp':
+          // Phone OTP endpoints are API-style JSON routes.
+          // Verified CSRF Token required for both send and verify.
+          if (csrfTokenVerified) {
+            if (providerId === 'send') {
+              return routes.otpSend(req, res)
+            }
+            if (providerId === 'verify') {
+              return routes.otpVerify(req, res)
+            }
+          }
+
+          return jsonError(res, new AuthError(csrfTokenVerified ? 'INVALID_REQUEST' : 'CSRF_MISMATCH', csrfTokenVerified ? 404 : 403))
+        case 'password':
+          // Password management endpoints are API-style JSON routes.
+          // Verified CSRF Token required.
+          if (csrfTokenVerified) {
+            if (providerId === 'change') {
+              return routes.changePassword(req, res)
+            }
+            if (providerId === 'forgot') {
+              return routes.forgotPassword(req, res)
+            }
+            if (providerId === 'reset') {
+              return routes.resetPassword(req, res)
+            }
+          }
+
+          return jsonError(res, new AuthError(csrfTokenVerified ? 'INVALID_REQUEST' : 'CSRF_MISMATCH', csrfTokenVerified ? 404 : 403))
         default:
       }
     }
@@ -208,7 +253,10 @@ async function ISCAuthHandler (req, res, userOptions) {
 /** Tha main entry point to isc-auth */
 export default function ISCAuth (...args) {
   if (args.length === 1) {
-    return (req, res) => ISCAuthHandler(req, res, args[0])
+    const handler = (req, res) => ISCAuthHandler(req, res, args[0])
+    // Better Auth style programmatic API (e.g. handler.api.getSession({ headers }))
+    handler.api = createApi(args[0])
+    return handler
   }
 
   return ISCAuthHandler(...args)

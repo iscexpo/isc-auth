@@ -19,12 +19,27 @@
         "nullable": true,
         "default": null
       },
-      "image": {
-        "type": "varchar",
-        "nullable": true,
-        "default": null
-      },
-      "created_at": {
+    "image": {
+      "type": "varchar",
+      "nullable": true,
+      "default": null
+    },
+    "password_hash": {
+      "type": "varchar",
+      "nullable": true,
+      "default": null
+    },
+    "phone": {
+      "type": "varchar",
+      "nullable": true,
+      "default": null
+    },
+    "phone_verified": {
+      "type": "datetime",
+      "nullable": true,
+      "default": null
+    },
+    "created_at": {
         "type": "datetime",
         "nullable": false
       },

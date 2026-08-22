@@ -24,6 +24,21 @@
       "nullable": true,
       "default": null
     },
+    "password_hash": {
+      "type": "varchar(255)",
+      "nullable": true,
+      "default": null
+    },
+    "phone": {
+      "type": "varchar(255)",
+      "nullable": true,
+      "default": null
+    },
+    "phone_verified": {
+      "type": "timestamp(6)",
+      "nullable": true,
+      "default": null
+    },
     "created_at": {
       "type": "timestamp(6)",
       "nullable": false

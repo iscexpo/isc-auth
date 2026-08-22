@@ -111,6 +111,39 @@ function _serialize (name, val, options) {
  *
  * @TODO Review cookie settings (names, options)
  */
+/**
+ * Canonical cookie names for a given security context, exposed so middleware
+ * (e.g. Next.js proxy.ts / middleware.ts) can reference session cookies
+ * without hardcoding names.
+ *
+ * Returns e.g. for useSecureCookies=true:
+ *   { sessionToken: '__Secure-isc-auth.session-token',
+ *     callbackUrl: '__Secure-isc-auth.callback-url',
+ *     csrfToken: '__Host-isc-auth.csrf-token' }
+ */
+export function getSessionCookieNames (useSecureCookies = true) {
+  const cookiePrefix = useSecureCookies ? '__Secure-' : ''
+  return {
+    sessionToken: `${cookiePrefix}isc-auth.session-token`,
+    callbackUrl: `${cookiePrefix}isc-auth.callback-url`,
+    csrfToken: `${useSecureCookies ? '__Host-' : ''}isc-auth.csrf-token`
+  }
+}
+
+/**
+ * Drop-in aliases matching Better Auth's default cookie names, for deployments
+ * where existing edge middleware expects those names. Pass these via:
+ *
+ *   cookies: {
+ *     sessionToken: { name: BETTER_AUTH_COOKIE_ALIASES.sessionToken },
+ *   }
+ */
+export const BETTER_AUTH_COOKIE_ALIASES = {
+  sessionToken: '__Secure-better-auth.session_token',
+  callbackUrl: '__Secure-better-auth.callback_url',
+  csrfToken: '__Host-better-auth.csrf_token'
+}
+
 export function defaultCookies (useSecureCookies) {
   const cookiePrefix = useSecureCookies ? '__Secure-' : ''
   return {

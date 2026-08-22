@@ -14,6 +14,7 @@ const Adapter = (config, options = {}) => {
     indexes = {
       Account: 'account_by_provider_account_id',
       User: 'user_by_email',
+      UserByPhone: 'user_by_phone',
       Session: 'session_by_token',
       VerificationRequest: 'verification_request_by_token'
     }
@@ -44,6 +45,11 @@ const Adapter = (config, options = {}) => {
             image: profile.image,
             emailVerified: profile.emailVerified
               ? profile.emailVerified
+              : false,
+            passwordHash: profile.passwordHash,
+            phone: profile.phone,
+            phoneVerified: profile.phoneVerified
+              ? profile.phoneVerified
               : false,
             createdAt: q.Time(timestamp),
             updatedAt: q.Time(timestamp)
@@ -112,6 +118,41 @@ const Adapter = (config, options = {}) => {
       }
     }
 
+    async function getUserByPhone (phone) {
+      _debug('getUserByPhone', phone)
+
+      if (!phone) {
+        return null
+      }
+
+      // Requires a terms index on data.phone, e.g.:
+      //   name: "user_by_phone", source: Collection("user"), terms: [{ field: ["data", "phone"] }]
+      const FQL = q.Let(
+        {
+          ref: q.Match(q.Index(indexes.UserByPhone), phone)
+        },
+        q.If(
+          q.Exists(q.Var('ref')),
+          q.Get(q.Var('ref')),
+          null
+        )
+      )
+
+      try {
+        const user = await faunaClient.query(FQL)
+
+        if (user == null) {
+          return null
+        }
+
+        user.data.id = user.ref.id
+        return user.data
+      } catch (error) {
+        console.error('GET_USER_BY_PHONE', error)
+        return Promise.reject(new Error('GET_USER_BY_PHONE'))
+      }
+    }
+
     async function getUserByProviderAccountId (providerId, providerAccountId) {
       _debug('getUserByProviderAccountId', providerId, providerAccountId)
 
@@ -164,6 +205,9 @@ const Adapter = (config, options = {}) => {
             email: user.email,
             image: user.image,
             emailVerified: user.emailVerified ? user.emailVerified : false,
+            passwordHash: user.passwordHash,
+            phone: user.phone,
+            phoneVerified: user.phoneVerified ? user.phoneVerified : false,
             updatedAt: q.Time(timestamp)
           }
         }
@@ -494,6 +538,7 @@ const Adapter = (config, options = {}) => {
       createUser,
       getUser,
       getUserByEmail,
+      getUserByPhone,
       getUserByProviderAccountId,
       updateUser,
       deleteUser,

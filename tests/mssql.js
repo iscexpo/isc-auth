@@ -17,7 +17,19 @@ function printSchema() {
      */
     let connection;
     try {
-      connection = await mssql.connect(databaseUrl);
+      // mssql >= 12 no longer parses `mssql://` connection strings, so an
+      // explicit config object is required here (the adapter still accepts
+      // the URL form above and parses it itself)
+      connection = await mssql.connect({
+        server: '127.0.0.1',
+        port: 1433,
+        user: 'iscauth',
+        password: 'password',
+        database: 'iscauth',
+        // mssql >= 12 encrypts by default; the local dev container uses a
+        // self-signed certificate so it must be trusted explicitly
+        options: { trustServerCertificate: true }
+      });
       // Invoke adapter to sync schema
       await (Adapters.Default(databaseUrl)).getAdapter();
       // query schema

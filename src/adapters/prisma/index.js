@@ -45,7 +45,10 @@ const Adapter = (config) => {
             name: profile.name,
             email: profile.email,
             image: profile.image,
-            emailVerified: profile.emailVerified ? profile.emailVerified.toISOString() : null
+            emailVerified: profile.emailVerified ? profile.emailVerified.toISOString() : null,
+            passwordHash: profile.passwordHash,
+            phone: profile.phone,
+            phoneVerified: profile.phoneVerified ? profile.phoneVerified.toISOString() : null
           }
         })
       } catch (error) {
@@ -75,6 +78,19 @@ const Adapter = (config) => {
       }
     }
 
+    async function getUserByPhone (phone) {
+      debug('GET_USER_BY_PHONE', phone)
+      try {
+        if (!phone) { return Promise.resolve(null) }
+        // findFirst rather than findUnique so user schemas do not have to
+        // declare phone as a @unique field
+        return prisma[User].findFirst({ where: { phone } })
+      } catch (error) {
+        logger.error('GET_USER_BY_PHONE_ERROR', error)
+        return Promise.reject(new Error('GET_USER_BY_PHONE_ERROR', error))
+      }
+    }
+
     async function getUserByProviderAccountId (providerId, providerAccountId) {
       debug('GET_USER_BY_PROVIDER_ACCOUNT_ID', providerId, providerAccountId)
       try {
@@ -90,14 +106,17 @@ const Adapter = (config) => {
     async function updateUser (user) {
       debug('UPDATE_USER', user)
       try {
-        const { id, name, email, image, emailVerified } = user
+        const { id, name, email, image, emailVerified, passwordHash, phone, phoneVerified } = user
         return prisma[User].update({
           where: { id },
           data: {
             name,
             email,
             image,
-            emailVerified: emailVerified ? emailVerified.toISOString() : null
+            emailVerified: emailVerified ? emailVerified.toISOString() : null,
+            passwordHash,
+            phone,
+            phoneVerified: phoneVerified ? phoneVerified.toISOString() : null
           }
         })
       } catch (error) {
@@ -311,6 +330,7 @@ const Adapter = (config) => {
       createUser,
       getUser,
       getUserByEmail,
+      getUserByPhone,
       getUserByProviderAccountId,
       updateUser,
       deleteUser,

@@ -1,4 +1,4 @@
-import { createConnection, getConnection } from 'typeorm'
+import { DataSource } from 'typeorm'
 import { createHash } from 'crypto'
 import require_optional from 'require_optional' // eslint-disable-line camelcase
 
@@ -8,6 +8,49 @@ import adapterTransform from './lib/transform'
 import Models from './models'
 import logger from '../../lib/logger'
 import { updateConnectionEntities } from './lib/utils'
+
+// Registry of initialized DataSources by connection name, shared across
+// Adapter instances (mirrors the legacy typeorm getConnection() behaviour of
+// reusing an existing connection with the same name).
+const connections = new Map()
+
+// TypeORM's MongoSchemaBuilder forwards unset index options as `null`
+// (e.g. `background: null`, `sparse: null`) because EntitySchemaTransformer
+// drops unknown options from schema defined indices. MongoDB 4.2+ rejects
+// these with a TypeMismatch error, breaking schema synchronization for every
+// schema defined index. Patching the query runner to strip null/undefined
+// index options fixes all indices at a single choke point.
+let mongoRunnerPatched = false
+function patchMongoIndexOptions () {
+  if (mongoRunnerPatched) { return }
+  try {
+    // eslint-disable-next-line global-require
+    const { MongoQueryRunner } = require('typeorm/driver/mongodb/MongoQueryRunner')
+    for (const method of ['createCollectionIndex', 'createCollectionIndexes']) {
+      const original = MongoQueryRunner.prototype[method]
+      if (!original || original.__iscNullSafe) { continue }
+      MongoQueryRunner.prototype[method] = async function (collectionName, indexSpec, options) {
+        const clean = (opts) => {
+          if (!opts) { return opts }
+          for (const key of Object.keys(opts)) {
+            if (opts[key] === null || opts[key] === undefined) { delete opts[key] }
+          }
+          return opts
+        }
+        if (method === 'createCollectionIndexes' && Array.isArray(options)) {
+          options.forEach(clean)
+        } else if (method === 'createCollectionIndex') {
+          clean(options)
+        }
+        return original.call(this, collectionName, indexSpec, options)
+      }
+      MongoQueryRunner.prototype[method].__iscNullSafe = true
+    }
+    mongoRunnerPatched = true
+  } catch (error) {
+    logger.warn('MONGO_INDEX_PATCH_ERROR', error)
+  }
+}
 
 const Adapter = (typeOrmConfig, options = {}) => {
   // Ensure typeOrmConfigObject is normalized to an object
@@ -45,23 +88,33 @@ const Adapter = (typeOrmConfig, options = {}) => {
     // (useful if they drop when after being idle)
     async function _connect () {
       // Get current connection by name
-      connection = getConnection(config.name)
+      connection = connections.get(config.name)
+
+      if (!connection) { throw new Error(`Connection "${config.name}" was not found in the registry`) }
 
       // If connection is no longer established, reconnect
-      if (!connection.isConnected) { connection = await connection.connect() }
+      if (!connection.isInitialized) { connection = await connection.initialize() }
     }
 
-    if (!connection) {
-      // If no connection, create new connection
+    if (!connection || !connection.isInitialized) {
+      // If no connection, create and initialize a new DataSource
       try {
-        connection = await createConnection(config)
+        if ((config.type && config.type === 'mongodb') ||
+            (config.url && config.url.startsWith('mongodb'))) {
+          patchMongoIndexOptions()
+        }
+
+        connection = await new DataSource(config).initialize()
+        connections.set(config.name, connection)
       } catch (error) {
-        if (error.name === 'AlreadyHasActiveConnectionError') {
-          // If creating connection fails because it's already
-          // been re-established, check it's really up
+        if (error.name === 'AlreadyHasActiveConnectionError' || error.name === 'MetadataAlreadyExistsError') {
+          // If creating the DataSource fails because an equivalent one has
+          // already been initialized (e.g. two Adapter instances share a
+          // name), reuse the registered instance
           await _connect()
         } else {
           logger.error('ADAPTER_CONNECTION_ERROR', error)
+          throw error
         }
       }
     } else {
@@ -122,7 +175,15 @@ const Adapter = (typeOrmConfig, options = {}) => {
       debug('CREATE_USER', profile)
       try {
         // Create user account
-        const user = new User(profile.name, profile.email, profile.image, profile.emailVerified)
+        const user = new User(
+          profile.name,
+          profile.email,
+          profile.image,
+          profile.emailVerified,
+          profile.passwordHash,
+          profile.phone,
+          profile.phoneVerified
+        )
         return await manager.save(user)
       } catch (error) {
         logger.error('CREATE_USER_ERROR', error)
@@ -159,6 +220,17 @@ const Adapter = (typeOrmConfig, options = {}) => {
       } catch (error) {
         logger.error('GET_USER_BY_EMAIL_ERROR', error)
         return Promise.reject(new Error('GET_USER_BY_EMAIL_ERROR', error))
+      }
+    }
+
+    async function getUserByPhone (phone) {
+      debug('GET_USER_BY_PHONE', phone)
+      try {
+        if (!phone) { return Promise.resolve(null) }
+        return manager.findOne(User, { phone })
+      } catch (error) {
+        logger.error('GET_USER_BY_PHONE_ERROR', error)
+        return Promise.reject(new Error('GET_USER_BY_PHONE_ERROR', error))
       }
     }
 
@@ -358,6 +430,7 @@ const Adapter = (typeOrmConfig, options = {}) => {
       createUser,
       getUser,
       getUserByEmail,
+      getUserByPhone,
       getUserByProviderAccountId,
       updateUser,
       deleteUser,

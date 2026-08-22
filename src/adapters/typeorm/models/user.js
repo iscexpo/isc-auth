@@ -1,11 +1,19 @@
 export class User {
-  constructor (name, email, image, emailVerified) {
+  constructor (name, email, image, emailVerified, passwordHash, phone, phoneVerified) {
     if (name) { this.name = name }
     if (email) { this.email = email }
     if (image) { this.image = image }
     if (emailVerified) {
       const currentDate = new Date()
       this.emailVerified = currentDate
+    }
+    // Hashed with src/lib/password.js (never store plaintext passwords)
+    if (passwordHash) { this.passwordHash = passwordHash }
+    // E.164 formatted phone number (used for phone OTP sign in)
+    if (phone) { this.phone = phone }
+    if (phoneVerified) {
+      const currentDate = new Date()
+      this.phoneVerified = currentDate
     }
   }
 }
@@ -44,6 +52,26 @@ export const UserSchema = {
       // This is inherited from the one in the OAuth provider profile on
       // initial sign in, if one is specified in that profile.
       type: 'varchar',
+      nullable: true
+    },
+    passwordHash: {
+      // scrypt hash in self-describing format (see src/lib/password.js).
+      // Null unless the user signed up with email + password.
+      // Uniqueness is enforced at application level; no DB constraint so that
+      // multiple NULLs stay valid on all supported databases (incl. MSSQL).
+      type: 'varchar',
+      nullable: true
+    },
+    phone: {
+      // E.164 formatted phone number. Uniqueness is enforced at application
+      // level during phone verification (see PLAN.md Phase 2).
+      type: 'varchar',
+      nullable: true
+    },
+    phoneVerified: {
+      // Timestamp of when the phone number was last confirmed via OTP.
+      // Is null if the phone number has never been verified.
+      type: 'timestamp',
       nullable: true
     },
     createdAt: {
